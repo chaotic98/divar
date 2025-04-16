@@ -1,53 +1,52 @@
 package ad
 
 import (
+	"strings"
+
 	"github.com/chaotic98/divar/interval/models"
 	"github.com/chaotic98/divar/pkg/utils"
-	"strings"
 )
 
-var ads = make(map[string]models.Ad)
-var users = make(map[string]*models.User)
+type InMemoryAdManager struct {
+	ads   map[string]models.Ad
+	users map[string]*models.User // shared with userManager
+}
 
-func AddAdvertise(username, title, tag string) string {
-	user, exists := users[username]
-	if !exists {
+func NewAdManager(users map[string]*models.User) *InMemoryAdManager {
+	return &InMemoryAdManager{
+		ads:   make(map[string]models.Ad),
+		users: users,
+	}
+}
+
+func (m *InMemoryAdManager) Add(username, title, tag string) string {
+	user, ok := m.users[username]
+	if !ok {
 		return "invalid username"
 	}
-
-	if _, exists := ads[title]; exists {
+	if _, exists := m.ads[title]; exists {
 		return "invalid title"
 	}
-
-	ads[title] = models.Ad{
-		Owner: username,
-		Title: title,
-		Tag:   tag,
-	}
+	m.ads[title] = models.Ad{Owner: username, Title: title, Tag: tag}
 	user.PostedAds = append(user.PostedAds, title)
 	return "posted successfully"
 }
 
-func RemAdvertise(username, title string) string {
-	user, exists := users[username]
-	if !exists {
+func (m *InMemoryAdManager) Remove(username, title string) string {
+	user, ok := m.users[username]
+	if !ok {
 		return "invalid username"
 	}
-
-	ad, exists := ads[title]
-	if !exists {
+	ad, ok := m.ads[title]
+	if !ok {
 		return "invalid title"
 	}
-
 	if ad.Owner != username {
 		return "access denied"
 	}
-
-	delete(ads, title)
-
+	delete(m.ads, title)
 	user.PostedAds = utils.RemoveStringFromSlice(user.PostedAds, title)
-
-	for _, u := range users {
+	for _, u := range m.users {
 		if u.FavSet[title] {
 			u.Favorites = utils.RemoveStringFromSlice(u.Favorites, title)
 			delete(u.FavSet, title)
@@ -56,22 +55,33 @@ func RemAdvertise(username, title string) string {
 	return "removed successfully"
 }
 
-func ListMyAdvertises(username string, tagFilter string) string {
-	user, exists := users[username]
-	if !exists {
+func (m *InMemoryAdManager) ListByUser(username, tag string) string {
+	user, ok := m.users[username]
+	if !ok {
 		return "invalid username"
 	}
 	var result []string
 	for _, t := range user.PostedAds {
-		if tagFilter != "" {
-			ad, ok := ads[t]
-			if ok && ad.Tag == tagFilter {
-				result = append(result, t)
-			}
-		} else {
+		ad, ok := m.ads[t]
+		if ok && (tag == "" || ad.Tag == tag) {
 			result = append(result, t)
 		}
 	}
-
 	return strings.Join(result, " ")
+}
+
+func (m *InMemoryAdManager) Get(title string) (models.Ad, bool) {
+	ad, ok := m.ads[title]
+	return ad, ok
+}
+
+func (m *InMemoryAdManager) ListAll() map[string]models.Ad {
+	return m.ads
+}
+
+func NewAdManagerWithStore(ads map[string]models.Ad, users map[string]*models.User) *InMemoryAdManager {
+	return &InMemoryAdManager{
+		ads:   ads,
+		users: users,
+	}
 }

@@ -1,19 +1,29 @@
 package user
 
 import (
+	"strings"
+
 	"github.com/chaotic98/divar/interval/models"
 	"github.com/chaotic98/divar/pkg/utils"
-	"strings"
 )
 
-var users = make(map[string]*models.User)
-var ads = make(map[string]models.Ad)
+type InMemoryUserManager struct {
+	users map[string]*models.User
+	ads   map[string]models.Ad // shared with adManager
+}
 
-func Register(username string) string {
-	if _, exists := users[username]; exists {
+func NewUserManager(ads map[string]models.Ad) *InMemoryUserManager {
+	return &InMemoryUserManager{
+		users: make(map[string]*models.User),
+		ads:   ads,
+	}
+}
+
+func (m *InMemoryUserManager) Register(username string) string {
+	if _, exists := m.users[username]; exists {
 		return "invalid username"
 	}
-	users[username] = &models.User{
+	m.users[username] = &models.User{
 		Username:  username,
 		PostedAds: []string{},
 		Favorites: []string{},
@@ -22,16 +32,14 @@ func Register(username string) string {
 	return "registered successfully"
 }
 
-func AddFavorite(username, title string) string {
-	user, exists := users[username]
-	if !exists {
+func (m *InMemoryUserManager) AddFavorite(username, title string) string {
+	user, ok := m.users[username]
+	if !ok {
 		return "invalid username"
 	}
-
-	if _, exists := ads[title]; !exists {
+	if _, ok := m.ads[title]; !ok {
 		return "invalid title"
 	}
-
 	if user.FavSet[title] {
 		return "already favorite"
 	}
@@ -40,16 +48,14 @@ func AddFavorite(username, title string) string {
 	return "added successfully"
 }
 
-func RemFavorite(username, title string) string {
-	user, exists := users[username]
-	if !exists {
+func (m *InMemoryUserManager) RemoveFavorite(username, title string) string {
+	user, ok := m.users[username]
+	if !ok {
 		return "invalid username"
 	}
-
-	if _, exists := ads[title]; !exists {
+	if _, ok := m.ads[title]; !ok {
 		return "invalid title"
 	}
-
 	if !user.FavSet[title] {
 		return "already not favorite"
 	}
@@ -58,21 +64,36 @@ func RemFavorite(username, title string) string {
 	return "removed successfully"
 }
 
-func ListFavoriteAdvertises(username string, tagFilter string) string {
-	user, exists := users[username]
-	if !exists {
+func (m *InMemoryUserManager) ListFavorites(username, tag string) string {
+	user, ok := m.users[username]
+	if !ok {
 		return "invalid username"
 	}
 	var result []string
 	for _, t := range user.Favorites {
-		if tagFilter != "" {
-			ad, ok := ads[t]
-			if ok && ad.Tag == tagFilter {
-				result = append(result, t)
-			}
-		} else {
+		ad, ok := m.ads[t]
+		if ok && (tag == "" || ad.Tag == tag) {
 			result = append(result, t)
 		}
 	}
 	return strings.Join(result, " ")
+}
+
+func (m *InMemoryUserManager) Exists(username string) bool {
+	_, ok := m.users[username]
+	return ok
+}
+
+func (m *InMemoryUserManager) GetAllUsernames() []string {
+	var names []string
+	for k := range m.users {
+		names = append(names, k)
+	}
+	return names
+}
+func NewUserManagerWithStore(users map[string]*models.User, ads map[string]models.Ad) *InMemoryUserManager {
+	return &InMemoryUserManager{
+		users: users,
+		ads:   ads,
+	}
 }
