@@ -12,13 +12,6 @@ type InMemoryAdManager struct {
 	users map[string]*models.User // shared with userManager
 }
 
-func NewAdManager(users map[string]*models.User) *InMemoryAdManager {
-	return &InMemoryAdManager{
-		ads:   make(map[string]models.Ad),
-		users: users,
-	}
-}
-
 func (m *InMemoryAdManager) Add(username, title, tag string) string {
 	user, ok := m.users[username]
 	if !ok {
