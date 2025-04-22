@@ -12,19 +12,15 @@ import (
 )
 
 func main() {
-	// shared storage
 	users := make(map[string]*models.User)
 	ads := make(map[string]models.Ad)
 
-	// concrete implementations
 	userManager := userpkg.NewUserManagerWithStore(users, ads)
 	adManager := adpkg.NewAdManagerWithStore(ads, users)
 
-	// interface usage (اختیاری)
 	var userIntf userpkg.UserManager = userManager
 	var adIntf adpkg.AdManager = adManager
 
-	// سپس استفاده کن مثل قبل
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		if !scanner.Scan() {
